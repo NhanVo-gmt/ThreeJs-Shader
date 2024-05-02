@@ -42,11 +42,51 @@ controls.target.set(0, 0, 0);
 controls.dampingFactor = 0.05;
 controls.enableDamping = true;
 
+const solidify = (mesh) => 
+{
+  const THICKNESS = 0.03;
+  const geometry = mesh.geometry
+  const material = new THREE.ShaderMaterial({
+    vertexShader: /* glsl */ `
+      void main() 
+      {
+        vec3 newPosition = position + normal * ${THICKNESS};
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      void main() 
+      {
+        gl_FragColor = vec4(0,0,0,1);
+      }
+    `,
+    side: THREE.BackSide
+  })
+
+  const outline = new THREE.Mesh(geometry,material);
+  scene.add(outline)
+}
+
+const addTorus = async() => {
+  const geometry = new THREE.TorusKnotGeometry(1, 0.4, 100, 100);
+  const material = new THREE.MeshPhysicalMaterial({
+    color: '#4e62f9'
+  })
+
+  
+  const torus = new THREE.Mesh(geometry, material);
+
+  const outline = solidify(torus);
+
+  scene.add(torus);
+}
+
+addTorus();
+
 (function () {
   // MOUSE CONTROL
   MouseControl(document, renderer, camera, scene);
 
-  
   renderer.setAnimationLoop(() => {
     controls.update();
 
