@@ -4,7 +4,7 @@ export function LightLoader(lightName, position, parent, target, scene)
 {
     const light = new THREE.SpotLight(new THREE.Color('#f5d862'));
 
-    light.intensity = 0.5;
+    light.intensity = 0.1;
     light.distance = 100;
     light.castShadow = true;
     light.shadow.mapSize.width = 512;

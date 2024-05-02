@@ -1,16 +1,11 @@
 import * as THREE from "three"
 
-export function GlobalLight()
+export function AddLight(scene)
 {
-    const light = new THREE.PointLight(new THREE.Color('#FFFFFF'), 1);
-    light.position.set(10, 20, 10);
+    const light = new THREE.DirectionalLight(new THREE.Color('#FFFFFF'), 0.5);
+    light.position.set(0, 1, 0);
+    scene.add(light);
 
-    light.intensity = 2;
-    light.castShadow = true;
-    light.shadow.mapSize.width = 512;
-    light.shadow.mapSize.height = 512;
-    light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 500;
-
-    return light;
+    const amLight = new THREE.AmbientLight(0x55555);
+    scene.add(amLight);
 }

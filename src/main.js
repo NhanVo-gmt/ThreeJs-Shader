@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'dat.gui'
-import { GlobalLight } from "./components/globalLight";
+import { AddLight } from "./components/globalLight";
 import { Reflector } from 'three/examples/jsm/objects/Reflector'
 
 // Create scene and background
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(.5,.5,.5);
+scene.background = new THREE.Color(0x000424);
 
 // Create camera
 const camera = new THREE.PerspectiveCamera(
@@ -31,8 +31,7 @@ document.body.appendChild(renderer.domElement);
 
 // Light
 
-const light = GlobalLight();
-scene.add(light);
+AddLight(scene);
 
 
 // Create control
@@ -47,7 +46,7 @@ controls.enableDamping = true;
 // Toon Shader
 const solidify = (mesh) => 
 {
-  const THICKNESS = 0.03;
+  const THICKNESS = 0.05;
   const geometry = mesh.geometry
   const material = new THREE.ShaderMaterial({
     vertexShader: /* glsl */ `
@@ -66,61 +65,11 @@ const solidify = (mesh) =>
     side: THREE.BackSide
   })
 
-  const outline = new THREE.Mesh(geometry,material);
+  let outline = new THREE.Mesh(geometry, material);
   scene.add(outline)
+  outline.position.set(mesh.position.x, mesh.position.y, mesh.position.z)
 }
 
-// Water displacement shader
-const waterDisplacement = () => 
-{
-  const material = new THREE.ShaderMaterial({
-    vertexShader: /* glsl */ `
-      uniform mat4 textureMatrix;
-      varying vec4 vUv;
-
-      #include<common>
-      #include<logdepthbuf_pars_vertex>
-
-      void main() 
-      {
-        vUv = textureMatrix * vec4(position, 1.0);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        #include<logdepthbuf_vertex>
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform vec3 color;
-      uniform sampler2D tDiffuse;
-      varying vec4 vUv;
-      #include<logdepthbuf_pars_fragment>
-
-      void main() 
-      {
-        #include<logdepthbuf_fragment>
-
-        float waveStrength = 0.5;
-        float waveSpeed = 0.03;
-        
-        // simple distortion
-        // horizontal distortion
-        vec2 distortedUv = texture2D(tDudv, vec2(vUv.x * time * waveSpeed, vUv.y)).rg * waveStrength;
-        // vertical distortion
-        distortedUv = vUv.xy * vec2(distortedUv.x, distortedUv.y * time * waveSpeed);
-        vec2 distortion = (texture2D(tDudv, distortedUv).rb *2.0 - 1.0) * waveStrength;
-
-        // new uv coords
-        vec4 uv = vec4(vUvRefraction);
-        uv.xy += distortion;
-
-        // merge color
-        vec4 base = texture2DProj(tDiffuse, vUv);
-        gl_FragColor = vec4(mix(base.rgb, color, 0.3), 1.0);
-        #include<tonemapping_fragment>
-        #include<encodings_fragment>
-      }
-    `
-  })
-}
 
 // Adding torus
 let torus;
@@ -140,19 +89,117 @@ const addTorus = async() => {
 addTorus();
 
 
-// Reflection
+// Adding sphere
+let sphere;
+const addSphere = async() => {
+  const geometry = new THREE.SphereGeometry(1, 32, 32);
+  const material = new THREE.MeshLambertMaterial({
+    color: '#ffffff'
+  })
 
+  
+  sphere = new THREE.Mesh(geometry, material);
+  sphere.position.x = 5;
+
+  // solidify(sphere);
+
+  scene.add(sphere);
+}
+
+addSphere();
+
+// Reflection
+let groundMirror;
 const setReflector = () =>
 {
-  let geometry;
-  geometry = new THREE.CircleGeometry(40, 64);
-  let groundMirror = new Reflector(geometry, {
+  let geometry = new THREE.CircleGeometry(40, 64);  
+  let customShader = Reflector.ReflectorShader;
+  
+  customShader = {
+
+    name: 'ReflectorShader',
+  
+    uniforms: {
+  
+      'color': {
+        value: null
+      },
+  
+      'tDiffuse': {
+        value: null
+      },
+  
+      'textureMatrix': {
+        value: null
+      }
+  
+    },
+  
+    vertexShader: /* glsl */`
+    uniform mat4 textureMatrix;
+    varying vec4 vUv;
+    
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+    
+    void main() 
+    {
+        vUv = textureMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        #include <logdepthbuf_vertex>
+    }
+    
+    `,
+  
+    fragmentShader: /* glsl */`
+      uniform vec3 color;
+      uniform sampler2D tDiffuse;
+      uniform sampler2D tDudv;
+      uniform float time;
+      varying vec4 vUv;
+
+      #include <logdepthbuf_pars_fragment>
+      
+      void main() 
+      {
+          #include <logdepthbuf_fragment>
+      
+          float waveStrength = 0.5;
+          float waveSpeed = 0.03;
+      
+          // simple distortion
+          // horizontal distortion
+          vec2 distortedUv = texture2D(tDudv, vec2(vUv.x * time * waveSpeed, vUv.y)).rb * waveStrength;
+          // vertical distortion
+          distortedUv = vUv.xy * vec2(distortedUv.x, distortedUv.y * time * waveSpeed);
+          vec2 distortion = (texture2D(tDudv, distortedUv).rb *2.0 - 1.0) * waveStrength;
+      
+          // new uv coords
+          vec4 uv = vec4(vUv);
+          uv.xy += distortion;
+      
+          // merge color
+          vec4 base = texture2DProj(tDiffuse, uv);
+          gl_FragColor = vec4(mix(base.rgb, color, 0.3), 1.0);
+          #include <tonemapping_fragment>
+          #include <encodings_fragment>
+      }
+      `
+  };
+
+  const dudvMap = new THREE.TextureLoader().load('../assets/waterdudv.jpg');
+  dudvMap.wrapS = dudvMap.wrapT = THREE.RepeatWrapping;
+  customShader.uniforms.tDudv = {value: dudvMap}
+  customShader.uniforms.time = {value: 0}
+  
+  groundMirror = new Reflector(geometry, {
+    shader: customShader,
     clipBias: 0.003,
     textureWidth: window.innerWidth * window.devicePixelRatio,
     textureHeight: window.innerHeight * window.devicePixelRatio,
-    color: 0xb5b5b5
+    color: 0xb5b5b5,
   })
-  groundMirror.position.y = -5;
+  groundMirror.position.y = -2;
   groundMirror.rotateX(-Math.PI / 2)
   scene.add(groundMirror);
 }
@@ -173,6 +220,7 @@ torusFolder.add(torus.position, 'y', 0, 10);
   renderer.setAnimationLoop(() => {
     controls.update();
 
+    groundMirror.material.uniforms.time.value += 0.1;
 
     renderer.render(scene, camera);
   });
