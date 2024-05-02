@@ -24,8 +24,6 @@ export function MouseControl(document, renderer, camera, scene) {
             }
             else if (MouseSelectedObj != null)
             {
-                console.log("Placed!");
-                
                 MouseSelectedObj = null;
                 MouseSelectedObjName = "";
             }
@@ -35,7 +33,6 @@ export function MouseControl(document, renderer, camera, scene) {
 
     function onDocumentMouseMove(event)
     {
-        console.log(MouseSelectedObj)
         var mouse = new THREE.Vector2();
         mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
         mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;

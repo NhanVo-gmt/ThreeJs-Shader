@@ -2,15 +2,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'dat.gui'
 import { MouseControl, MouseSelectedObj } from "./components/mouseControl";
-import { FloorMeshLoader } from "./components/floorLoader";
 import { GlobalLight } from "./components/globalLight";
-import { WallMeshLoader } from "./components/wallLoader";
-import { FbxLoader } from "./components/fbxLoader";
-import { Room } from "./components/room";
 
 // Create scene and background
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0.1,0.1,0.1);
+scene.background = new THREE.Color(1,1,1);
 
 // Create camera
 const camera = new THREE.PerspectiveCamera(
@@ -38,12 +34,6 @@ scene.add(light);
 
 // Create Gui
 const gui = new GUI();
-const roomFolder = gui.addFolder('Room')
-const room = new Room(scene);
-
-roomFolder.add(room.roomVar, 'width', 0, 100);
-roomFolder.add(room.roomVar, 'length', 0, 100);
-roomFolder.add(light, 'intensity', 0, 1);
 
 
 // Create control
@@ -60,12 +50,6 @@ controls.enableDamping = true;
   renderer.setAnimationLoop(() => {
     controls.update();
 
-    room.updateRoom();
-
-    if (MouseSelectedObj != null)
-    {
-      
-    }
 
     renderer.render(scene, camera);
   });
