@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'dat.gui'
-import { MouseControl, MouseSelectedObj } from "./components/mouseControl";
 import { GlobalLight } from "./components/globalLight";
+import { Reflector } from 'three/examples/jsm/objects/Reflector'
 
 // Create scene and background
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(1,1,1);
+scene.background = new THREE.Color(.5,.5,.5);
 
 // Create camera
 const camera = new THREE.PerspectiveCamera(
@@ -29,11 +29,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
+// Light
+
 const light = GlobalLight();
 scene.add(light);
-
-// Create Gui
-const gui = new GUI();
 
 
 // Create control
@@ -42,6 +41,10 @@ controls.target.set(0, 0, 0);
 controls.dampingFactor = 0.05;
 controls.enableDamping = true;
 
+
+
+// SHADER
+// Toon Shader
 const solidify = (mesh) => 
 {
   const THICKNESS = 0.03;
@@ -67,6 +70,8 @@ const solidify = (mesh) =>
   scene.add(outline)
 }
 
+// Adding torus
+let torus;
 const addTorus = async() => {
   const geometry = new THREE.TorusKnotGeometry(1, 0.4, 100, 100);
   const material = new THREE.MeshPhysicalMaterial({
@@ -74,18 +79,44 @@ const addTorus = async() => {
   })
 
   
-  const torus = new THREE.Mesh(geometry, material);
+  torus = new THREE.Mesh(geometry, material);
 
-  const outline = solidify(torus);
+  solidify(torus);
 
   scene.add(torus);
 }
-
 addTorus();
 
-(function () {
-  // MOUSE CONTROL
-  MouseControl(document, renderer, camera, scene);
+
+// Reflection
+
+const setReflector = () =>
+{
+  let geometry;
+  geometry = new THREE.CircleGeometry(40, 64);
+  let groundMirror = new Reflector(geometry, {
+    clipBias: 0.003,
+    textureWidth: window.innerWidth * window.devicePixelRatio,
+    textureHeight: window.innerHeight * window.devicePixelRatio,
+    color: 0xb5b5b5
+  })
+  groundMirror.position.y = -5;
+  groundMirror.rotateX(-Math.PI / 2)
+  scene.add(groundMirror);
+}
+
+setReflector();
+
+
+// Create Gui
+const gui = new GUI();
+const torusFolder = gui.addFolder("Torus");
+
+torusFolder.add(torus.position, 'y', 0, 10);
+
+// MAIN
+(async function () {
+
 
   renderer.setAnimationLoop(() => {
     controls.update();
