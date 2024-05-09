@@ -132,7 +132,8 @@ let groundMirror;
 
 let waterShaderVar = {
   waveSpeed: 0.03,
-  waveStrength: 0.5
+  waveStrength: 0.5,
+  color: new THREE.Vector3(0, 0, 0)
 }
 
 const setReflector = () =>
@@ -147,7 +148,7 @@ const setReflector = () =>
     uniforms: {
   
       'color': {
-        value: null
+        value: waterShaderVar.color
       },
   
       'tDiffuse': {
@@ -252,6 +253,9 @@ outlineShader.add(outlineShaderVar.color, 'z', 0, 1).name("Blue");
 const waterShader = gui.addFolder("Water");
 waterShader.add(waterShaderVar, 'waveSpeed', 0, 0.3);
 waterShader.add(waterShaderVar, 'waveStrength', 0, 1);
+waterShader.add(waterShaderVar.color, 'x', 0, 1).name("Red");
+waterShader.add(waterShaderVar.color, 'y', 0, 1).name("Green");
+waterShader.add(waterShaderVar.color, 'z', 0, 1).name("Blue");
 
 // MAIN
 (async function () {
@@ -279,6 +283,7 @@ const UpdateWaterShader = () => {
   groundMirror.material.uniforms.time.value += 0.1;
   groundMirror.material.uniforms.waveSpeed.value = waterShaderVar.waveSpeed;
   groundMirror.material.uniforms.waveStrength.value = waterShaderVar.waveStrength;
+  groundMirror.material.uniforms.color.value = waterShaderVar.color;
 }
 
 
