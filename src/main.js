@@ -288,9 +288,9 @@ const setReflector = () =>
 
 
 ////////////////// WAVE SHADER //////////////////////
-
+let water;
 const setWaveShader = () => {
-  const waterGeometry = new THREE.PlaneGeometry(2, 2, 512, 512);
+  const waterGeometry = new THREE.PlaneGeometry(20, 20, 512, 512);
   const waterMaterial = new THREE.ShaderMaterial(
     {
       vertexShader: waveVertexShader,
@@ -298,21 +298,26 @@ const setWaveShader = () => {
       uniforms: 
       {
         uTime: { value: 0 },
-        uBigWavesElevation: { value: 0.2 },
-        uBigWavesFrequency: { value: new THREE.Vector2(4, 1.5)},
+        uBigWavesElevation: { value: 0.6 },
+        uBigWavesFrequency: { value: new THREE.Vector2(.5, .5)},
         uBigWavesSpeed: { value: 0.75 },
         uDepthColor: { value: new THREE.Color("#186691")},
         uSurfaceColor: { value: new THREE.Color("#9bd8ff")},
         uColorOffset: { value: 0.08 },
-        uColorMultiplier: { value: 5},
+        uColorMultiplier: { value: 5 },
 
-        uSmallWavesElevation: { value: 0.15 },
-        uSmallWavesFrequency: { value: 3},
+        uSmallWavesElevation: { value: 0.1 },
+        uSmallWavesFrequency: { value: 2},
         uSmallWavesSpeed: { value: 0.2 },
         uSmallWavesIterations: { value: 1 },
       },
     },
   )
+
+ water = new THREE.Mesh(waterGeometry, waterMaterial);
+  water.rotation.x = -Math.PI * 0.5;
+  water.position.y -= 2;
+  scene.add(water);
 }
 
 setWaveShader();
@@ -337,6 +342,7 @@ waterShader.add(waterShaderVar, 'waveStrength', 0, 1);
 waterShader.addColor(waterShaderVar, 'color').name("Color");
 
 // MAIN
+const clock = new THREE.Clock();
 (async function () {
 
 
@@ -344,6 +350,7 @@ waterShader.addColor(waterShaderVar, 'color').name("Color");
     controls.update();
     UpdateOutLineShader();
     // UpdateWaterShader();
+    UpdateWaveShader();
 
     renderer.render(scene, camera);
   });
@@ -363,6 +370,10 @@ const UpdateWaterShader = () => {
   groundMirror.material.uniforms.waveSpeed.value = waterShaderVar.waveSpeed;
   groundMirror.material.uniforms.waveStrength.value = waterShaderVar.waveStrength;
   groundMirror.material.uniforms.color.value = new THREE.Color(waterShaderVar.color);
+}
+
+const UpdateWaveShader = () => {
+  water.material.uniforms.uTime.value = clock.getElapsedTime();
 }
 
 
