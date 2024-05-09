@@ -17,6 +17,9 @@ const camera = new THREE.PerspectiveCamera(
 );
 // camera.position.set(20, 20, 20);
 camera.position.set(-17, 31, 33);
+var cameralight = new THREE.PointLight( new THREE.Color(1,1,1), 1 );
+camera.add( cameralight );
+scene.add(camera);
 
 // Create renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -31,7 +34,6 @@ document.body.appendChild(renderer.domElement);
 
 // Light
 
-AddLight(scene);
 
 
 // Create control
@@ -40,26 +42,35 @@ controls.target.set(0, 0, 0);
 controls.dampingFactor = 0.05;
 controls.enableDamping = true;
 
-
-
 // SHADER
 // Toon Shader
+let outlineObjects = [];
+let outlineVar = {
+  thickness: 0.05,
+  color: new THREE.Vector3(0, 0, 0),
+}
+
 const solidify = (mesh) => 
 {
-  const THICKNESS = 0.05;
   const geometry = mesh.geometry
   const material = new THREE.ShaderMaterial({
+    uniforms: {
+      thickness: { value: outlineVar.thickness},
+      color: {value: outlineVar.color}
+    },
     vertexShader: /* glsl */ `
+      uniform float thickness;
       void main() 
       {
-        vec3 newPosition = position + normal * ${THICKNESS};
+        vec3 newPosition = position + normal * thickness;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1);
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform vec3 color;
       void main() 
       {
-        gl_FragColor = vec4(0,0,0,1);
+        gl_FragColor = vec4(color,1);
       }
     `,
     side: THREE.BackSide
@@ -68,6 +79,14 @@ const solidify = (mesh) =>
   let outline = new THREE.Mesh(geometry, material);
   scene.add(outline)
   outline.position.set(mesh.position.x, mesh.position.y, mesh.position.z)
+  
+  let outlineObject = 
+  {
+    mesh: mesh,
+    outline: outline,
+  }
+
+  outlineObjects.push(outlineObject)
 }
 
 
@@ -83,7 +102,7 @@ const addTorus = async() => {
   torus = new THREE.Mesh(geometry, material);
 
   solidify(torus);
-
+  
   scene.add(torus);
 }
 addTorus();
@@ -101,7 +120,7 @@ const addSphere = async() => {
   sphere = new THREE.Mesh(geometry, material);
   sphere.position.x = 5;
 
-  // solidify(sphere);
+  solidify(sphere);
 
   scene.add(sphere);
 }
@@ -197,7 +216,7 @@ const setReflector = () =>
     clipBias: 0.003,
     textureWidth: window.innerWidth * window.devicePixelRatio,
     textureHeight: window.innerHeight * window.devicePixelRatio,
-    color: 0xb5b5b5,
+    color: 0x889999
   })
   groundMirror.position.y = -2;
   groundMirror.rotateX(-Math.PI / 2)
@@ -210,8 +229,9 @@ setReflector();
 // Create Gui
 const gui = new GUI();
 const torusFolder = gui.addFolder("Torus");
-
 torusFolder.add(torus.position, 'y', 0, 10);
+const outlineShader = gui.addFolder("Outline")
+outlineShader.add(outlineVar, 'thickness', 0.05, 0.5);
 
 // MAIN
 (async function () {
@@ -219,13 +239,35 @@ torusFolder.add(torus.position, 'y', 0, 10);
 
   renderer.setAnimationLoop(() => {
     controls.update();
-
+    UpdateOutLineShader();
     groundMirror.material.uniforms.time.value += 0.1;
 
     renderer.render(scene, camera);
   });
 })();
 
+const UpdateOutLineShader = () => {
+  
+  outlineObjects.forEach(outlineObject => {
+    outlineObject.outline.position.set(outlineObject.mesh.position.x, outlineObject.mesh.position.y, outlineObject.mesh.position.z),
+    outlineObject.outline.material.uniforms.color.value = outlineVar.color;
+    outlineObject.outline.material.uniforms.thickness.value = outlineVar.thickness;
+  });
+}
 
+
+	//this fucntion is called when the window is resized
+	var MyResize = function ( )
+  	{
+    	var width = window.innerWidth;
+    	var height = window.innerHeight;
+    	renderer.setSize(width,height);
+    	camera.aspect = width/height;
+    	camera.updateProjectionMatrix();
+    	renderer.render(scene,camera);
+  	};
+
+  	//link the resize of the window to the update of the camera
+  	window.addEventListener( 'resize', MyResize);
 
 

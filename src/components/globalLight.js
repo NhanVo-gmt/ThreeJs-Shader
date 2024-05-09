@@ -8,4 +8,6 @@ export function AddLight(scene)
 
     const amLight = new THREE.AmbientLight(0x55555);
     scene.add(amLight);
+
+    return light;
 }
