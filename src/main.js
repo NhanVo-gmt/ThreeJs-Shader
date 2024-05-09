@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'dat.gui'
-import { AddLight } from "./components/globalLight";
 import { Reflector } from 'three/examples/jsm/objects/Reflector'
 import { Sky } from 'three/examples/jsm/objects/Sky';
+import waveVertexShader from './shaders/waveShaderVert.glsl?raw'
+import waveFragmentShader from './shaders/waveShaderFrag.glsl?raw'
 
 // Create scene and background
 const scene = new THREE.Scene();
@@ -63,7 +64,6 @@ function updateSun() {
   sun.setFromSphericalCoords( 1, phi, theta );
 
   sky.material.uniforms[ 'sunPosition' ].value.copy( sun );
-  // water.material.uniforms[ 'sunDirection' ].value.copy( sun ).normalize();
 
   if ( renderTarget !== undefined ) renderTarget.dispose();
 
@@ -85,7 +85,9 @@ controls.dampingFactor = 0.05;
 controls.enableDamping = true;
 
 // SHADER
-// Toon Shader
+////////////////// TOON SHADER //////////////////////
+
+
 let outlineObjects = [];
 let outlineShaderVar = {
   thickness: 0.05,
@@ -131,6 +133,7 @@ const solidify = (mesh) =>
   outlineObjects.push(outlineObject)
 }
 
+///////////////////////////////////////////////////////////////////
 
 // Adding torus
 let torus;
@@ -169,7 +172,8 @@ const addSphere = async() => {
 
 addSphere();
 
-// Reflection
+////////////////// WATER SHADER //////////////////////
+
 let groundMirror;
 
 let waterShaderVar = {
@@ -261,6 +265,8 @@ const setReflector = () =>
       `
   };
 
+///////////////////////////////////////////////////////////////////
+
   const dudvMap = new THREE.TextureLoader().load('../assets/waterdudv.jpg');
   dudvMap.wrapS = dudvMap.wrapT = THREE.RepeatWrapping;
   customShader.uniforms.tDudv = {value: dudvMap}
@@ -278,7 +284,42 @@ const setReflector = () =>
   scene.add(groundMirror);
 }
 
-setReflector();
+// setReflector();
+
+
+////////////////// WAVE SHADER //////////////////////
+
+const setWaveShader = () => {
+  const waterGeometry = new THREE.PlaneGeometry(2, 2, 512, 512);
+  const waterMaterial = new THREE.ShaderMaterial(
+    {
+      vertexShader: waveVertexShader,
+      fragmentShader: waveFragmentShader,
+      uniforms: 
+      {
+        uTime: { value: 0 },
+        uBigWavesElevation: { value: 0.2 },
+        uBigWavesFrequency: { value: new THREE.Vector2(4, 1.5)},
+        uBigWavesSpeed: { value: 0.75 },
+        uDepthColor: { value: new THREE.Color("#186691")},
+        uSurfaceColor: { value: new THREE.Color("#9bd8ff")},
+        uColorOffset: { value: 0.08 },
+        uColorMultiplier: { value: 5},
+
+        uSmallWavesElevation: { value: 0.15 },
+        uSmallWavesFrequency: { value: 3},
+        uSmallWavesSpeed: { value: 0.2 },
+        uSmallWavesIterations: { value: 1 },
+      },
+    },
+  )
+}
+
+setWaveShader();
+
+///////////////////////////////////////////////////////////////////
+
+
 
 
 // Create Gui
@@ -302,7 +343,7 @@ waterShader.addColor(waterShaderVar, 'color').name("Color");
   renderer.setAnimationLoop(() => {
     controls.update();
     UpdateOutLineShader();
-    UpdateWaterShader();
+    // UpdateWaterShader();
 
     renderer.render(scene, camera);
   });
