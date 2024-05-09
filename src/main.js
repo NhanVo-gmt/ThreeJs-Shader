@@ -3,6 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'dat.gui'
 import { AddLight } from "./components/globalLight";
 import { Reflector } from 'three/examples/jsm/objects/Reflector'
+import { Sky } from 'three/examples/jsm/objects/Sky';
 
 // Create scene and background
 const scene = new THREE.Scene();
@@ -32,8 +33,49 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// Light
+// Skybox
 
+const sky = new Sky();
+sky.scale.setScalar( 10000 );
+scene.add( sky );
+
+const skyUniforms = sky.material.uniforms;
+
+skyUniforms[ 'turbidity' ].value = 10;
+skyUniforms[ 'rayleigh' ].value = 2;
+skyUniforms[ 'mieCoefficient' ].value = 0.005;
+skyUniforms[ 'mieDirectionalG' ].value = 0.8;
+
+let sun = new THREE.Vector3();
+const parameters = {
+  elevation: 2,
+  azimuth: 180
+};
+let renderTarget;
+const pmremGenerator = new THREE.PMREMGenerator( renderer );
+const sceneEnv = new THREE.Scene();
+
+function updateSun() {
+
+  const phi = THREE.MathUtils.degToRad( 90 - parameters.elevation );
+  const theta = THREE.MathUtils.degToRad( parameters.azimuth );
+
+  sun.setFromSphericalCoords( 1, phi, theta );
+
+  sky.material.uniforms[ 'sunPosition' ].value.copy( sun );
+  // water.material.uniforms[ 'sunDirection' ].value.copy( sun ).normalize();
+
+  if ( renderTarget !== undefined ) renderTarget.dispose();
+
+  sceneEnv.add( sky );
+  renderTarget = pmremGenerator.fromScene( sceneEnv );
+  scene.add( sky );
+
+  scene.environment = renderTarget.texture;
+
+}
+
+updateSun();
 
 
 // Create control
@@ -47,7 +89,7 @@ controls.enableDamping = true;
 let outlineObjects = [];
 let outlineShaderVar = {
   thickness: 0.05,
-  color: new THREE.Vector3(0, 0, 0),
+  color: '#000000',
 }
 
 const solidify = (mesh) => 
@@ -56,7 +98,7 @@ const solidify = (mesh) =>
   const material = new THREE.ShaderMaterial({
     uniforms: {
       thickness: { value: outlineShaderVar.thickness},
-      color: {value: outlineShaderVar.color}
+      color: {value: new THREE.Color(outlineShaderVar.color)}
     },
     vertexShader: /* glsl */ `
       uniform float thickness;
@@ -133,7 +175,7 @@ let groundMirror;
 let waterShaderVar = {
   waveSpeed: 0.03,
   waveStrength: 0.5,
-  color: new THREE.Vector3(0, 0, 0)
+  color: "#000000"
 }
 
 const setReflector = () =>
@@ -246,16 +288,12 @@ torusFolder.add(torus.position, 'y', 0, 10);
 
 const outlineShader = gui.addFolder("Outline")
 outlineShader.add(outlineShaderVar, 'thickness', 0.05, 0.5);
-outlineShader.add(outlineShaderVar.color, 'x', 0, 1).name("Red");
-outlineShader.add(outlineShaderVar.color, 'y', 0, 1).name("Green");
-outlineShader.add(outlineShaderVar.color, 'z', 0, 1).name("Blue");
+outlineShader.addColor(outlineShaderVar, 'color').name("Color");
 
 const waterShader = gui.addFolder("Water");
 waterShader.add(waterShaderVar, 'waveSpeed', 0, 0.3);
 waterShader.add(waterShaderVar, 'waveStrength', 0, 1);
-waterShader.add(waterShaderVar.color, 'x', 0, 1).name("Red");
-waterShader.add(waterShaderVar.color, 'y', 0, 1).name("Green");
-waterShader.add(waterShaderVar.color, 'z', 0, 1).name("Blue");
+waterShader.addColor(waterShaderVar, 'color').name("Color");
 
 // MAIN
 (async function () {
@@ -274,7 +312,7 @@ const UpdateOutLineShader = () => {
   
   outlineObjects.forEach(outlineObject => {
     outlineObject.outline.position.set(outlineObject.mesh.position.x, outlineObject.mesh.position.y, outlineObject.mesh.position.z),
-    outlineObject.outline.material.uniforms.color.value = outlineShaderVar.color;
+    outlineObject.outline.material.uniforms.color.value = new THREE.Color(outlineShaderVar.color);
     outlineObject.outline.material.uniforms.thickness.value = outlineShaderVar.thickness;
   });
 }
@@ -283,7 +321,7 @@ const UpdateWaterShader = () => {
   groundMirror.material.uniforms.time.value += 0.1;
   groundMirror.material.uniforms.waveSpeed.value = waterShaderVar.waveSpeed;
   groundMirror.material.uniforms.waveStrength.value = waterShaderVar.waveStrength;
-  groundMirror.material.uniforms.color.value = waterShaderVar.color;
+  groundMirror.material.uniforms.color.value = new THREE.Color(waterShaderVar.color);
 }
 
 
