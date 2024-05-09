@@ -3,8 +3,10 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from 'dat.gui'
 import { Reflector } from 'three/examples/jsm/objects/Reflector'
 import { Sky } from 'three/examples/jsm/objects/Sky';
-import waveVertexShader from './shaders/waveShaderVert.glsl?raw'
-import waveFragmentShader from './shaders/waveShaderFrag.glsl?raw'
+import waterVertShader from './shaders/waterShaderVert.glsl?raw'
+import waterFragShader from './shaders/waterShaderFrag.glsl?raw'
+import toonFragShader from './shaders/toonShaderFrag.glsl?raw'
+import toonVertShader from './shaders/toonShaderVert.glsl?raw'
 
 // Create scene and background
 const scene = new THREE.Scene();
@@ -102,21 +104,8 @@ const solidify = (mesh) =>
       thickness: { value: outlineShaderVar.thickness},
       color: {value: new THREE.Color(outlineShaderVar.color)}
     },
-    vertexShader: /* glsl */ `
-      uniform float thickness;
-      void main() 
-      {
-        vec3 newPosition = position + normal * thickness;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1);
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform vec3 color;
-      void main() 
-      {
-        gl_FragColor = vec4(color,1);
-      }
-    `,
+    vertexShader: toonVertShader,
+    fragmentShader: toonFragShader,
     side: THREE.BackSide
   })
 
@@ -174,17 +163,27 @@ addSphere();
 
 ////////////////// WATER SHADER //////////////////////
 
-let groundMirror;
+let water;
 
-let waterShaderVar = {
+let mirrorShaderVar = {
   waveSpeed: 0.03,
   waveStrength: 0.5,
   color: "#000000"
 }
 
+let waveShaderVar = {
+  uBigWavesElevation: .60,
+  uBigWavesFrequency: new THREE.Vector2(.2, .2),
+  uBigWavesSpeed: 0.75,
+  uDepthColor: '#889999',
+  uSurfaceColor: '#9bd8ff',
+  uColorOffset: 0.08,
+  uColorMultiplier: .1 ,
+}
+
 const setReflector = () =>
 {
-  let geometry = new THREE.CircleGeometry(40, 64);  
+  let geometry = new THREE.PlaneGeometry(40, 40, 512, 512);  
   let customShader = Reflector.ReflectorShader;
   
   customShader = {
@@ -194,7 +193,7 @@ const setReflector = () =>
     uniforms: {
   
       'color': {
-        value: waterShaderVar.color
+        value: mirrorShaderVar.color
       },
   
       'tDiffuse': {
@@ -206,125 +205,49 @@ const setReflector = () =>
       },
       
       'waveSpeed': {
-        value: waterShaderVar.waveSpeed
+        value: mirrorShaderVar.waveSpeed
       },
 
       'waveStrength' : {
-        value: waterShaderVar.waveStrength
-      }
+        value: mirrorShaderVar.waveStrength
+      },
+      uTime: { value: 0 },
+      uBigWavesElevation: { value: .60 },
+      uBigWavesFrequency: { value: new THREE.Vector2(.2, .6)},
+      uBigWavesSpeed: { value: 0.75 },
+      uDepthColor: { value: new THREE.Color("#889999")},
+      uSurfaceColor: { value: new THREE.Color("#9bd8ff")},
+      uColorOffset: { value: 0.08 },
+      uColorMultiplier: { value: .1 },
+
+      uSmallWavesElevation: { value: 0.1 },
+      uSmallWavesFrequency: { value: .2},
+      uSmallWavesSpeed: { value: 0.2 },
+      uSmallWavesIterations: { value: 2.0 },
     },
   
-    vertexShader: /* glsl */`
-    uniform mat4 textureMatrix;
-    varying vec4 vUv;
-    
-    #include <common>
-    #include <logdepthbuf_pars_vertex>
-    
-    void main() 
-    {
-        vUv = textureMatrix * vec4(position, 1.0);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        #include <logdepthbuf_vertex>
-    }
-    
-    `,
-  
-    fragmentShader: /* glsl */`
-      uniform vec3 color;
-      uniform sampler2D tDiffuse;
-      uniform sampler2D tDudv;
-      uniform float time;
-      uniform float waveStrength;
-      uniform float waveSpeed;
-      varying vec4 vUv;
-
-      #include <logdepthbuf_pars_fragment>
-      
-      void main() 
-      {
-          #include <logdepthbuf_fragment>
-      
-          // simple distortion
-          // horizontal distortion
-          vec2 distortedUv = texture2D(tDudv, vec2(vUv.x * time * waveSpeed, vUv.y)).rb * waveStrength;
-          // vertical distortion
-          distortedUv = vUv.xy * vec2(distortedUv.x, distortedUv.y * time * waveSpeed);
-          vec2 distortion = (texture2D(tDudv, distortedUv).rb *2.0 - 1.0) * waveStrength;
-      
-          // new uv coords
-          vec4 uv = vec4(vUv);
-          uv.xy += distortion;
-      
-          // merge color
-          vec4 base = texture2DProj(tDiffuse, uv);
-          gl_FragColor = vec4(mix(base.rgb, color, 0.3), 1.0);
-          #include <tonemapping_fragment>
-          #include <encodings_fragment>
-      }
-      `
+    vertexShader: waterVertShader,
+    fragmentShader: waterFragShader,
   };
-
-///////////////////////////////////////////////////////////////////
 
   const dudvMap = new THREE.TextureLoader().load('../assets/waterdudv.jpg');
   dudvMap.wrapS = dudvMap.wrapT = THREE.RepeatWrapping;
   customShader.uniforms.tDudv = {value: dudvMap}
   customShader.uniforms.time = {value: 0}
   
-  groundMirror = new Reflector(geometry, {
+  water = new Reflector(geometry, {
     shader: customShader,
     clipBias: 0.003,
     textureWidth: window.innerWidth * window.devicePixelRatio,
     textureHeight: window.innerHeight * window.devicePixelRatio,
-    color: 0x889999
+    color: new THREE.Color("#889999")
   })
-  groundMirror.position.y = -2;
-  groundMirror.rotateX(-Math.PI / 2)
-  scene.add(groundMirror);
-}
-
-// setReflector();
-
-
-////////////////// WAVE SHADER //////////////////////
-let water;
-const setWaveShader = () => {
-  const waterGeometry = new THREE.PlaneGeometry(20, 20, 512, 512);
-  const waterMaterial = new THREE.ShaderMaterial(
-    {
-      vertexShader: waveVertexShader,
-      fragmentShader: waveFragmentShader,
-      uniforms: 
-      {
-        uTime: { value: 0 },
-        uBigWavesElevation: { value: 0.6 },
-        uBigWavesFrequency: { value: new THREE.Vector2(.5, .5)},
-        uBigWavesSpeed: { value: 0.75 },
-        uDepthColor: { value: new THREE.Color("#186691")},
-        uSurfaceColor: { value: new THREE.Color("#9bd8ff")},
-        uColorOffset: { value: 0.08 },
-        uColorMultiplier: { value: 5 },
-
-        uSmallWavesElevation: { value: 0.1 },
-        uSmallWavesFrequency: { value: 2},
-        uSmallWavesSpeed: { value: 0.2 },
-        uSmallWavesIterations: { value: 1 },
-      },
-    },
-  )
-
- water = new THREE.Mesh(waterGeometry, waterMaterial);
-  water.rotation.x = -Math.PI * 0.5;
-  water.position.y -= 2;
+  water.position.y = -2;
+  water.rotateX(-Math.PI / 2)
   scene.add(water);
 }
 
-setWaveShader();
-
-///////////////////////////////////////////////////////////////////
-
-
+setReflector();
 
 
 // Create Gui
@@ -336,10 +259,16 @@ const outlineShader = gui.addFolder("Outline")
 outlineShader.add(outlineShaderVar, 'thickness', 0.05, 0.5);
 outlineShader.addColor(outlineShaderVar, 'color').name("Color");
 
+const mirrorShader = gui.addFolder("Mirror");
+mirrorShader.add(mirrorShaderVar, 'waveSpeed', 0, 0.3);
+mirrorShader.add(mirrorShaderVar, 'waveStrength', 0, 1);
+mirrorShader.addColor(mirrorShaderVar, 'color').name("Color");
+
 const waterShader = gui.addFolder("Water");
-waterShader.add(waterShaderVar, 'waveSpeed', 0, 0.3);
-waterShader.add(waterShaderVar, 'waveStrength', 0, 1);
-waterShader.addColor(waterShaderVar, 'color').name("Color");
+waterShader.add(waveShaderVar, 'uBigWavesElevation', 0, 10);
+waterShader.add(waveShaderVar, 'uBigWavesSpeed', 0, 1);
+waterShader.add(waveShaderVar.uBigWavesFrequency, 'x', 0, 1);
+waterShader.add(waveShaderVar.uBigWavesFrequency, 'y', 0, 1);
 
 // MAIN
 const clock = new THREE.Clock();
@@ -349,7 +278,7 @@ const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
     controls.update();
     UpdateOutLineShader();
-    // UpdateWaterShader();
+    UpdateMirrorShader();
     UpdateWaveShader();
 
     renderer.render(scene, camera);
@@ -365,15 +294,18 @@ const UpdateOutLineShader = () => {
   });
 }
 
-const UpdateWaterShader = () => {
-  groundMirror.material.uniforms.time.value += 0.1;
-  groundMirror.material.uniforms.waveSpeed.value = waterShaderVar.waveSpeed;
-  groundMirror.material.uniforms.waveStrength.value = waterShaderVar.waveStrength;
-  groundMirror.material.uniforms.color.value = new THREE.Color(waterShaderVar.color);
+const UpdateMirrorShader = () => {
+  water.material.uniforms.time.value += 0.1;
+  water.material.uniforms.waveSpeed.value = mirrorShaderVar.waveSpeed;
+  water.material.uniforms.waveStrength.value = mirrorShaderVar.waveStrength;
+  water.material.uniforms.color.value = new THREE.Color(mirrorShaderVar.color);
 }
 
 const UpdateWaveShader = () => {
   water.material.uniforms.uTime.value = clock.getElapsedTime();
+  water.material.uniforms.uBigWavesElevation.value = waveShaderVar.uBigWavesElevation;
+  water.material.uniforms.uBigWavesSpeed.value = waveShaderVar.uBigWavesSpeed;
+  water.material.uniforms.uBigWavesFrequency.value = waveShaderVar.uBigWavesFrequency;
 }
 
 
