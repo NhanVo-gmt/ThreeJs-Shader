@@ -45,7 +45,7 @@ controls.enableDamping = true;
 // SHADER
 // Toon Shader
 let outlineObjects = [];
-let outlineVar = {
+let outlineShaderVar = {
   thickness: 0.05,
   color: new THREE.Vector3(0, 0, 0),
 }
@@ -55,8 +55,8 @@ const solidify = (mesh) =>
   const geometry = mesh.geometry
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      thickness: { value: outlineVar.thickness},
-      color: {value: outlineVar.color}
+      thickness: { value: outlineShaderVar.thickness},
+      color: {value: outlineShaderVar.color}
     },
     vertexShader: /* glsl */ `
       uniform float thickness;
@@ -129,6 +129,12 @@ addSphere();
 
 // Reflection
 let groundMirror;
+
+let waterShaderVar = {
+  waveSpeed: 0.03,
+  waveStrength: 0.5
+}
+
 const setReflector = () =>
 {
   let geometry = new THREE.CircleGeometry(40, 64);  
@@ -150,8 +156,15 @@ const setReflector = () =>
   
       'textureMatrix': {
         value: null
+      },
+      
+      'waveSpeed': {
+        value: waterShaderVar.waveSpeed
+      },
+
+      'waveStrength' : {
+        value: waterShaderVar.waveStrength
       }
-  
     },
   
     vertexShader: /* glsl */`
@@ -175,6 +188,8 @@ const setReflector = () =>
       uniform sampler2D tDiffuse;
       uniform sampler2D tDudv;
       uniform float time;
+      uniform float waveStrength;
+      uniform float waveSpeed;
       varying vec4 vUv;
 
       #include <logdepthbuf_pars_fragment>
@@ -182,9 +197,6 @@ const setReflector = () =>
       void main() 
       {
           #include <logdepthbuf_fragment>
-      
-          float waveStrength = 0.5;
-          float waveSpeed = 0.03;
       
           // simple distortion
           // horizontal distortion
@@ -232,10 +244,14 @@ const torusFolder = gui.addFolder("Torus");
 torusFolder.add(torus.position, 'y', 0, 10);
 
 const outlineShader = gui.addFolder("Outline")
-outlineShader.add(outlineVar, 'thickness', 0.05, 0.5);
-outlineShader.add(outlineVar.color, 'x', 0, 1).name("Red");
-outlineShader.add(outlineVar.color, 'y', 0, 1).name("Green");
-outlineShader.add(outlineVar.color, 'z', 0, 1).name("Blue");
+outlineShader.add(outlineShaderVar, 'thickness', 0.05, 0.5);
+outlineShader.add(outlineShaderVar.color, 'x', 0, 1).name("Red");
+outlineShader.add(outlineShaderVar.color, 'y', 0, 1).name("Green");
+outlineShader.add(outlineShaderVar.color, 'z', 0, 1).name("Blue");
+
+const waterShader = gui.addFolder("Water");
+waterShader.add(waterShaderVar, 'waveSpeed', 0, 0.3);
+waterShader.add(waterShaderVar, 'waveStrength', 0, 1);
 
 // MAIN
 (async function () {
@@ -244,7 +260,7 @@ outlineShader.add(outlineVar.color, 'z', 0, 1).name("Blue");
   renderer.setAnimationLoop(() => {
     controls.update();
     UpdateOutLineShader();
-    groundMirror.material.uniforms.time.value += 0.1;
+    UpdateWaterShader();
 
     renderer.render(scene, camera);
   });
@@ -254,9 +270,15 @@ const UpdateOutLineShader = () => {
   
   outlineObjects.forEach(outlineObject => {
     outlineObject.outline.position.set(outlineObject.mesh.position.x, outlineObject.mesh.position.y, outlineObject.mesh.position.z),
-    outlineObject.outline.material.uniforms.color.value = outlineVar.color;
-    outlineObject.outline.material.uniforms.thickness.value = outlineVar.thickness;
+    outlineObject.outline.material.uniforms.color.value = outlineShaderVar.color;
+    outlineObject.outline.material.uniforms.thickness.value = outlineShaderVar.thickness;
   });
+}
+
+const UpdateWaterShader = () => {
+  groundMirror.material.uniforms.time.value += 0.1;
+  groundMirror.material.uniforms.waveSpeed.value = waterShaderVar.waveSpeed;
+  groundMirror.material.uniforms.waveStrength.value = waterShaderVar.waveStrength;
 }
 
 
