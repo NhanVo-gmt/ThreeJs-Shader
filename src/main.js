@@ -230,8 +230,12 @@ setReflector();
 const gui = new GUI();
 const torusFolder = gui.addFolder("Torus");
 torusFolder.add(torus.position, 'y', 0, 10);
+
 const outlineShader = gui.addFolder("Outline")
 outlineShader.add(outlineVar, 'thickness', 0.05, 0.5);
+outlineShader.add(outlineVar.color, 'x', 0, 1).name("Red");
+outlineShader.add(outlineVar.color, 'y', 0, 1).name("Green");
+outlineShader.add(outlineVar.color, 'z', 0, 1).name("Blue");
 
 // MAIN
 (async function () {
